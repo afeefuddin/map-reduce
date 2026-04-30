@@ -1,0 +1,21 @@
+syntax = "proto3";
+package worker;
+option go_package = "map-reduce/gen/worker;workerpb";
+
+service Worker {
+  rpc AssignTask(TaskRequest) returns (TaskResponse) {}
+  rpc Health(HealthRequest) returns (HealthStatus) {}
+}
+
+message HealthRequest {}
+message TaskResponse {}
+
+message TaskRequest {
+  string id = 1;
+  string type = 2;
+  string location = 3;
+}
+
+message HealthStatus {
+  string status = 1;
+}

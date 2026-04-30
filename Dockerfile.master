@@ -1,0 +1,14 @@
+FROM golang:1.26 AS builder
+
+WORKDIR /app
+ENV CGO_ENABLED=0 GOOS=linux GOTMPDIR=/go/tmp GOCACHE=/go/cache
+RUN mkdir -p /go/tmp /go/cache
+COPY . .
+
+RUN go build -o master ./cmd/master
+
+FROM alpine:latest
+WORKDIR /root/
+COPY --from=builder /app/master .
+
+CMD ["./master"]
