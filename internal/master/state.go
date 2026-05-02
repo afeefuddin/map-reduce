@@ -32,20 +32,20 @@ type MasterState struct {
 
 type Task struct {
 	Id        string
-	input     string
 	startedAt *time.Time
 	completed bool
 }
 
 type MapTask struct {
 	Task
+	input  string
 	output string
 }
 
 type MasterConfig struct {
 	MappersCount  int
 	ReducersCount int
-	WorkersCount int
+	WorkersCount  int
 	Input         string
 }
 

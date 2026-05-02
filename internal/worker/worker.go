@@ -10,15 +10,19 @@ import (
 	"map-reduce/internal/utils"
 	mapreduce "map-reduce/pkg/map-reduce"
 	"net"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/minio/minio-go/v7"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 var MapReduceWorkerConfig *mapreduce.MapReduceConfig
 var MapperData [][][]string
+var ReducerData []string
 
 func StartWorker(config *mapreduce.MapReduceConfig) {
 	MapReduceWorkerConfig = config
@@ -63,7 +67,68 @@ func PerformTask(req *workerpb.TaskRequest) {
 		SyncReducerDataToMinio()
 
 	} else {
-		MapReduceWorkerConfig.Reducer()
+		id, err := strconv.ParseInt(req.Id, 10, 64)
+
+		if err != nil {
+			log.Fatalf("Error parinsg id %s %s", err, req.Id)
+		}
+		ReducerData = nil
+
+		client, err := utils.GetMinioClient()
+		ctx := context.Background()
+
+		if err != nil {
+			log.Fatalf("Error connecting to minio")
+		}
+
+		// var paths []minio.ObjectInfo
+		var reducerData []string
+
+		for d := range client.ListObjectsIter(ctx, "map-reduce-bucket", minio.ListObjectsOptions{Prefix: "workers", Recursive: true}) {
+			if strings.HasSuffix(d.Key, fmt.Sprintf("reducer-%d.txt", id)) {
+				data, err := utils.GetObject(d.Key)
+				if err != nil {
+					log.Fatalf("Error reading the reducer dat")
+				}
+				redData, err := io.ReadAll(data)
+
+				if err != nil {
+					log.Fatalf("Error reading the reducer dat")
+				}
+
+				reducerData = append(reducerData, string(redData))
+			}
+		}
+
+		var wordsWithCount []string
+		// wordsWithCount := slices.
+		for _, d := range reducerData {
+			words := strings.Split(d, "\n")
+			wordsWithCount = slices.Concat(wordsWithCount, words)
+		}
+
+		m := make(map[string][]int)
+
+		for _, line := range wordsWithCount {
+			fields := strings.Fields(line)
+			if len(fields) != 2 {
+				continue
+			}
+
+			count, err := strconv.Atoi(fields[1])
+			if err != nil {
+				log.Printf("Skipping invalid reducer data %q: %s", line, err)
+				continue
+			}
+
+			m[fields[0]] = append(m[fields[0]], count)
+		}
+
+		for key, value := range m {
+			MapReduceWorkerConfig.Reducer(key, value)
+		}
+
+		SyncOutputToMinio(req.Id)
 	}
 
 	conn, err := grpc.NewClient(MapReduceWorkerConfig.MasterAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -124,4 +189,9 @@ func SyncReducerDataToMinio() {
 	for i, d := range data {
 		utils.UploadData(fmt.Sprintf("workers/worker-%s/reducer-%d.txt", MapReduceWorkerConfig.WorkerId, i), d)
 	}
+}
+
+func SyncOutputToMinio(id string) {
+	combinedData := strings.Join(ReducerData, "\n")
+	utils.UploadData(fmt.Sprintf("outputs/output-%s.txt", id), combinedData)
 }

@@ -6,6 +6,7 @@ import (
 	"log"
 	workerpb "map-reduce/gen/worker"
 	"map-reduce/internal/utils"
+	"strconv"
 	"time"
 )
 
@@ -15,7 +16,6 @@ func OrchestrateMapReduce(ctx context.Context, config MasterConfig) {
 	if err != nil {
 		log.Fatalf("Error sharding the data %s", err)
 		return
-		// panic("Error sharding the data")
 	}
 
 	// append all the map tasks
@@ -23,9 +23,9 @@ func OrchestrateMapReduce(ctx context.Context, config MasterConfig) {
 		task := MapTask{
 			Task: Task{
 				Id:        fmt.Sprintf("map-%d", idx),
-				input:     data,
 				completed: false,
 			},
+			input: data,
 		}
 
 		MasterStateData.mapTasks = append(MasterStateData.mapTasks, task)
@@ -95,4 +95,72 @@ func OrchestrateMapReduce(ctx context.Context, config MasterConfig) {
 
 	log.Println("All map tasks completed!")
 
+	// Now push the reducer taks
+	for i := range config.ReducersCount {
+		MasterStateData.reduceTasks = append(MasterStateData.reduceTasks, Task{
+			Id:        strconv.Itoa(i),
+			startedAt: nil,
+			completed: false,
+		})
+	}
+
+	for {
+		taskCompletedCount := 0
+		for _, task := range MasterStateData.reduceTasks {
+			if task.completed {
+				taskCompletedCount++
+				continue
+			}
+
+			if task.IsOngoingTask() {
+				continue
+			}
+
+			for {
+				worker := GetNextWorker()
+
+				if worker != nil {
+					// assign this worker
+					MasterStateData.mu.Lock()
+					// rpc
+
+					log.Printf("Found a pod, %s", worker.Addr)
+					client, err := GetClient(worker.Addr)
+
+					if err != nil {
+						MasterStateData.mu.Unlock()
+						continue
+					}
+
+					_, err = client.AssignTask(ctx, &workerpb.TaskRequest{
+						Id:       task.Id,
+						Type:     "reduce",
+						Location: "",
+					})
+
+					log.Printf("Map task assigned to %s", worker.Id)
+
+					if err != nil {
+						MasterStateData.mu.Unlock()
+						continue
+					}
+
+					now := time.Now()
+					worker.StartWork(now)
+					task.startedAt = &now
+					MasterStateData.mu.Unlock()
+					break
+				} else {
+					log.Printf("No Worker sad life :(")
+				}
+
+			}
+		}
+
+		if taskCompletedCount == len(MasterStateData.reduceTasks) {
+			break
+		}
+	}
+
+	log.Println("Map reduce completed")
 }

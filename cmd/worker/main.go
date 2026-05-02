@@ -4,6 +4,7 @@ import (
 	"map-reduce/internal/worker"
 	mapreduce "map-reduce/pkg/map-reduce"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -20,8 +21,14 @@ func mapper(chunk string) {
 	}
 }
 
-func reducer() {
+func reducer(key string, val []int) {
+	v := 0
 
+	for _, count := range val {
+		v += count
+	}
+
+	worker.EmitR(key, strconv.Itoa(v))
 }
 
 func main() {

@@ -4,8 +4,10 @@ import (
 	"context"
 	"log"
 	"slices"
+	"strconv"
 
 	masterpb "map-reduce/gen/master"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -31,7 +33,10 @@ func (s *Server) ReportCompletion(ctx context.Context, req *masterpb.WorkerId) (
 		}
 		MasterStateData.mapTasks[taskIdx].MarkCompleted()
 	} else {
-
+		i, err := strconv.ParseInt(req.TaskId, 10, 64)
+		if err == nil && i >= 0 && int(i) < len(MasterStateData.reduceTasks) {
+			MasterStateData.reduceTasks[i].MarkCompleted()
+		}
 	}
 
 	return &masterpb.ReportCompletionResponse{}, nil
