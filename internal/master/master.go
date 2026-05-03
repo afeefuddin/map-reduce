@@ -2,8 +2,8 @@ package master
 
 import (
 	"context"
+	masterpb "gomr/gen/master"
 	"log"
-	masterpb "map-reduce/gen/master"
 	"net"
 	"time"
 
@@ -11,6 +11,7 @@ import (
 )
 
 func StartMaster(config MasterConfig) {
+
 	MasterStateData = &MasterState{workers: make(map[string]WorkerData)}
 	ctx, _ := context.WithCancel(context.Background())
 

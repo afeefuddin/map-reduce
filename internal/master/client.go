@@ -1,7 +1,7 @@
 package master
 
 import (
-	workerpb "map-reduce/gen/worker"
+	workerpb "gomr/gen/worker"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

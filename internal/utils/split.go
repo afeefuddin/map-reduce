@@ -3,11 +3,12 @@ package utils
 import (
 	"bufio"
 	"fmt"
+	"gomr/internal/storage"
 	"strings"
 )
 
 func ShardDataAndUpload(inputFile string, count int) ([]string, error) {
-	obj, err := GetObject(inputFile)
+	obj, err := storage.GetObject(inputFile)
 
 	if err != nil {
 		return nil, err
@@ -30,7 +31,7 @@ func ShardDataAndUpload(inputFile string, count int) ([]string, error) {
 	for i, shard := range shards {
 		data := strings.Join(shard, "\n")
 		splittedInputFile := fmt.Sprintf("splitted-input/input-shard-%d.txt", i)
-		if err := UploadData(splittedInputFile, data); err != nil {
+		if err := storage.UploadData(splittedInputFile, data); err != nil {
 			return nil, err
 		}
 

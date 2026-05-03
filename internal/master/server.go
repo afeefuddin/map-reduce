@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strconv"
 
-	masterpb "map-reduce/gen/master"
+	masterpb "gomr/gen/master"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	workerpb "map-reduce/gen/worker"
+	workerpb "gomr/gen/worker"
 )
 
 type Server struct {

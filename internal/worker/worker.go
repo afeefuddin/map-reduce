@@ -3,12 +3,11 @@ package worker
 import (
 	"context"
 	"fmt"
+	masterpb "gomr/gen/master"
+	workerpb "gomr/gen/worker"
+	"gomr/internal/storage"
 	"io"
 	"log"
-	masterpb "map-reduce/gen/master"
-	workerpb "map-reduce/gen/worker"
-	"map-reduce/internal/utils"
-	mapreduce "map-reduce/pkg/map-reduce"
 	"net"
 	"slices"
 	"strconv"
@@ -20,14 +19,14 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var MapReduceWorkerConfig *mapreduce.MapReduceConfig
+var MapReduceWorkerConfig *WorkerConfig
 var MapperData [][][]string
 var ReducerData []string
 
-func StartWorker(config *mapreduce.MapReduceConfig) {
+func StartWorker(config *WorkerConfig) {
 	MapReduceWorkerConfig = config
 
-	lis, err := net.Listen("tcp", config.WorkerAdd)
+	lis, err := net.Listen("tcp", config.WorkerAddr)
 
 	if err != nil {
 		log.Fatalf("Failed to listen: %s", err)
@@ -48,7 +47,7 @@ func PerformTask(req *workerpb.TaskRequest) {
 	if req.Type == "map" {
 		location := req.Location
 
-		obj, err := utils.GetObject(location)
+		obj, err := storage.GetObject(location)
 
 		if err != nil {
 			log.Fatalf("Error getting the input object %s", err)
@@ -61,7 +60,7 @@ func PerformTask(req *workerpb.TaskRequest) {
 		}
 
 		MapperData = make([][][]string, MapReduceWorkerConfig.ReducerCount)
-		MapReduceWorkerConfig.Mapper(string(data))
+		MapReduceWorkerConfig.Mapper(&taskContext{phase: "map"}, string(data))
 
 		// Sync the in memory mapper data to minio
 		SyncReducerDataToMinio()
@@ -74,7 +73,7 @@ func PerformTask(req *workerpb.TaskRequest) {
 		}
 		ReducerData = nil
 
-		client, err := utils.GetMinioClient()
+		client, err := storage.GetMinioClient()
 		ctx := context.Background()
 
 		if err != nil {
@@ -86,7 +85,7 @@ func PerformTask(req *workerpb.TaskRequest) {
 
 		for d := range client.ListObjectsIter(ctx, "map-reduce-bucket", minio.ListObjectsOptions{Prefix: "workers", Recursive: true}) {
 			if strings.HasSuffix(d.Key, fmt.Sprintf("reducer-%d.txt", id)) {
-				data, err := utils.GetObject(d.Key)
+				data, err := storage.GetObject(d.Key)
 				if err != nil {
 					log.Fatalf("Error reading the reducer dat")
 				}
@@ -125,7 +124,7 @@ func PerformTask(req *workerpb.TaskRequest) {
 		}
 
 		for key, value := range m {
-			MapReduceWorkerConfig.Reducer(key, value)
+			MapReduceWorkerConfig.Reducer(&taskContext{phase: "reduce"}, key, value)
 		}
 
 		SyncOutputToMinio(req.Id)
@@ -152,7 +151,7 @@ func PerformTask(req *workerpb.TaskRequest) {
 	}
 }
 
-func RegisterWithMaster(config *mapreduce.MapReduceConfig) {
+func RegisterWithMaster(config *WorkerConfig) {
 	conn, err := grpc.NewClient(config.MasterAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	if err != nil {
@@ -166,7 +165,7 @@ func RegisterWithMaster(config *mapreduce.MapReduceConfig) {
 
 	c := masterpb.NewMasterClient(conn)
 
-	res, err := c.RegiserWorker(ctx, &masterpb.WorkerData{Id: config.WorkerId, Address: config.WorkerAdd})
+	res, err := c.RegiserWorker(ctx, &masterpb.WorkerData{Id: config.WorkerId, Address: config.WorkerAddr})
 
 	if err != nil {
 		log.Fatalf("Error registring the worker: %s", err)
@@ -187,11 +186,11 @@ func SyncReducerDataToMinio() {
 	}
 
 	for i, d := range data {
-		utils.UploadData(fmt.Sprintf("workers/worker-%s/reducer-%d.txt", MapReduceWorkerConfig.WorkerId, i), d)
+		storage.UploadData(fmt.Sprintf("workers/worker-%s/reducer-%d.txt", MapReduceWorkerConfig.WorkerId, i), d)
 	}
 }
 
 func SyncOutputToMinio(id string) {
 	combinedData := strings.Join(ReducerData, "\n")
-	utils.UploadData(fmt.Sprintf("outputs/output-%s.txt", id), combinedData)
+	storage.UploadData(fmt.Sprintf("outputs/output-%s.txt", id), combinedData)
 }

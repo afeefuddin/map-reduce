@@ -5,6 +5,20 @@ import (
 	"hash/fnv"
 )
 
+type taskContext struct {
+	phase string
+}
+
+func (c *taskContext) Emit(key, value string) error {
+	if c.phase == "map" {
+		Emit(key, value)
+		return nil
+	}
+
+	EmitR(key, value)
+	return nil
+}
+
 func Emit(key, value string) {
 	idx := decideReducer(key)
 	kv := []string{key, value}

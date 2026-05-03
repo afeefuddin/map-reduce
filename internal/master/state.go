@@ -64,12 +64,16 @@ func (w *WorkerSchedulerData) MarkFree() {
 	w.startedAt = nil
 }
 
-func (t *Task) IsOngoingTask() bool {
+func (t *Task) IsOnGoingTask() bool {
 	if t.startedAt == nil {
 		return false
 	}
 
 	return t.startedAt.After(time.Now().Add(-time.Duration(ThresholdTime) * time.Second))
+}
+
+func (t *Task) IsCompleted() bool {
+	return t.completed
 }
 
 func (t *Task) MarkCompleted() {
@@ -87,7 +91,7 @@ func GetNextWorker() *WorkerSchedulerData {
 
 	// WorkersSchedule is maintained as an LRU queue (least-recently-used at front).
 	// Rotate busy workers to the back until a free/expired one reaches the front.
-	for i := 0; i < totalWorkers; i++ {
+	for _ = range totalWorkers {
 		worker := &MasterStateData.WorkersSchedule[0]
 		if !worker.isBusy() {
 			return worker
