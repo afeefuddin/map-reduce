@@ -23,9 +23,9 @@ func main() {
 	}
 	config.WorkersCount = int(workersCount)
 
-	reducersCounts, err := strconv.ParseInt(os.Getenv("WORKERS_COUNT"), 10, 64)
+	reducersCounts, err := strconv.ParseInt(os.Getenv("REDUCERS_COUNT"), 10, 64)
 	if err != nil {
-		log.Fatalf("Error parsing the workers count")
+		log.Fatalf("Error parsing the reducers count")
 
 	}
 	config.ReducersCount = int(reducersCounts)

@@ -5,7 +5,8 @@ ENV CGO_ENABLED=0 GOOS=linux GOTMPDIR=/go/tmp GOCACHE=/go/cache
 RUN mkdir -p /go/tmp /go/cache
 COPY . .
 
-RUN go build -o worker ./cmd/worker
+ARG WORKER_FILE=examples/wordcount/worker.go
+RUN go build -o worker ./${WORKER_FILE}
 
 FROM alpine:latest
 WORKDIR /root/

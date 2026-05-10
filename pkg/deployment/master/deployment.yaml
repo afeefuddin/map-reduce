@@ -18,3 +18,14 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 9001
+          env:
+            - name: INPUT_PATH
+              value: ""
+            - name: WORKERS_COUNT
+              value: "5"
+            - name: MAPPERS_COUNT
+              value: "5"
+            - name: REDUCERS_COUNT
+              value: "2"
+            - name: GOMR_ROLLOUT_ID
+              value: ""

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"os"
 	"strings"
 
 	"github.com/minio/minio-go/v7"
@@ -26,7 +27,12 @@ func GetMinioClient() (*minio.Client, error) {
 }
 
 func newMinioClient() (*minio.Client, error) {
-	return minio.New("minio:9000", &minio.Options{
+	endpoint := os.Getenv("MINIO_ENDPOINT")
+	if endpoint == "" {
+		endpoint = "minio:9000"
+	}
+
+	return minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4("minioadmin", "minioadmin", ""),
 		Secure: false,
 	})
@@ -42,7 +48,9 @@ func ensureBucketExists(client *minio.Client, bucket string) error {
 	}
 
 	if !exists {
-		client.MakeBucket(ctx, bucket, minio.MakeBucketOptions{})
+		if err := client.MakeBucket(ctx, bucket, minio.MakeBucketOptions{}); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -64,6 +72,10 @@ func UploadData(objectName string, data string) error {
 	ctx := context.Background()
 
 	if err != nil {
+		return err
+	}
+
+	if err := ensureBucketExists(client, bucketName); err != nil {
 		return err
 	}
 

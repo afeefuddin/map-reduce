@@ -33,8 +33,8 @@ func StartMaster(config MasterConfig) {
 			MasterStateData.mu.RUnlock()
 			log.Printf("Worker count %d", workerCount)
 
-			if config.WorkersCount == workerCount {
-				log.Print("All workers connected")
+			if workerCount >= config.WorkersCount {
+				log.Printf("Required workers connected: expected=%d actual=%d", config.WorkersCount, workerCount)
 				break
 			}
 

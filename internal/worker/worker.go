@@ -152,25 +152,28 @@ func PerformTask(req *workerpb.TaskRequest) {
 }
 
 func RegisterWithMaster(config *WorkerConfig) {
-	conn, err := grpc.NewClient(config.MasterAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	for {
+		conn, err := grpc.NewClient(config.MasterAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			log.Printf("Failed to connect to the master: %s", err)
+			time.Sleep(time.Second)
+			continue
+		}
 
-	if err != nil {
-		log.Fatalf("Failed to connect to the master: %s", err)
-	}
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		c := masterpb.NewMasterClient(conn)
 
-	defer conn.Close()
+		res, err := c.RegiserWorker(ctx, &masterpb.WorkerData{Id: config.WorkerId, Address: config.WorkerAddr})
+		cancel()
+		conn.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+		if err == nil {
+			log.Printf("Registered with the master %v", res.Registered)
+			return
+		}
 
-	c := masterpb.NewMasterClient(conn)
-
-	res, err := c.RegiserWorker(ctx, &masterpb.WorkerData{Id: config.WorkerId, Address: config.WorkerAddr})
-
-	if err != nil {
-		log.Fatalf("Error registring the worker: %s", err)
-	} else {
-		log.Printf("Registerd with the master %v", res.Registered)
+		log.Printf("Error registering the worker: %s", err)
+		time.Sleep(time.Second)
 	}
 }
 

@@ -103,7 +103,7 @@ func OrchestrateMapReduce(ctx context.Context, config MasterConfig) {
 
 func startMapTask(taskIndex int, worker *WorkerSchedulerData) {
 	MasterStateData.mu.Lock()
-	task := MasterStateData.mapTasks[taskIndex]
+	task := &MasterStateData.mapTasks[taskIndex]
 	// rpc
 
 	log.Printf("Found a pod, %s", worker.Addr)
@@ -137,7 +137,7 @@ func startMapTask(taskIndex int, worker *WorkerSchedulerData) {
 func startReduceTask(taskIndex int, worker *WorkerSchedulerData) {
 	MasterStateData.mu.Lock()
 	// rpc
-	task := MasterStateData.mapTasks[taskIndex]
+	task := &MasterStateData.reduceTasks[taskIndex]
 
 	log.Printf("Found a pod, %s", worker.Addr)
 	client, err := GetClient(worker.Addr)
@@ -154,7 +154,7 @@ func startReduceTask(taskIndex int, worker *WorkerSchedulerData) {
 		Location: "",
 	})
 
-	log.Printf("Map task assigned to %s", worker.Id)
+	log.Printf("Reduce task assigned to %s", worker.Id)
 
 	if err != nil {
 		MasterStateData.mu.Unlock()
